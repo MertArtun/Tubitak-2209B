@@ -3,160 +3,1319 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Öğrenci Dikkat Takip Sistemi</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <title>Ogrenci Dikkat Takip Sistemi</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* ── Reset & Base ─────────────────────────────────────────── */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            min-width: 1280px;
+            line-height: 1.5;
+        }
+
+        /* ── Header ───────────────────────────────────────────────── */
+        .header {
+            background: linear-gradient(135deg, #1a73e8, #1557b0);
+            color: #fff;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+        }
+
+        .session-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .session-controls input,
+        .session-controls select {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            outline: none;
+            transition: background 0.2s;
+        }
+
+        .session-controls input::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+
+        .session-controls select option {
+            color: #333;
+            background: #fff;
+        }
+
+        .session-controls input:focus,
+        .session-controls select:focus {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-start {
+            background: #4CAF50;
+            color: #fff;
+        }
+
+        .btn-stop {
+            background: #F44336;
+            color: #fff;
+        }
+
+        .btn-stop:disabled,
+        .btn-start:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-primary {
+            background: #1a73e8;
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: #1a73e8;
+            border: 1px solid #1a73e8;
+        }
+
+        .btn-export {
+            background: #43a047;
+            color: #fff;
+        }
+
+        /* ── Main Layout ──────────────────────────────────────────── */
+        .main-content {
+            display: flex;
+            gap: 20px;
+            padding: 20px 32px;
+            min-height: calc(100vh - 180px);
+        }
+
+        .left-panel {
+            flex: 7;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .right-panel {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* ── Cards ────────────────────────────────────────────────── */
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+
+        .card-header {
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #555;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        /* ── Video Feed ───────────────────────────────────────────── */
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        #webcam-canvas {
+            width: 100%;
+            display: block;
+            border-radius: 12px;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .video-badge {
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            backdrop-filter: blur(4px);
+        }
+
+        .video-badge.live {
+            background: rgba(244,67,54,0.85);
+        }
+
+        .video-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255,255,255,0.6);
+            font-size: 16px;
+        }
+
+        .video-placeholder .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        /* ── Class Average Score ───────────────────────────────────── */
+        .score-display {
+            text-align: center;
+            padding: 24px 20px;
+        }
+
+        .score-value {
+            font-size: 56px;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 8px;
+            transition: color 0.3s;
+        }
+
+        .score-label {
+            font-size: 16px;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .score-sublabel {
+            font-size: 13px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        /* ── Student Cards ────────────────────────────────────────── */
+        .student-list {
+            max-height: 420px;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Custom scrollbar */
+        .student-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .student-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .student-list::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
+        }
+        .student-list::-webkit-scrollbar-thumb:hover {
+            background: #aaa;
+        }
+
+        .student-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: #fafafa;
+            border-radius: 10px;
+            border-left: 4px solid #ccc;
+            transition: all 0.2s;
+        }
+
+        .student-card:hover {
+            background: #f0f4ff;
+        }
+
+        .student-card.focused {
+            border-left-color: #4CAF50;
+        }
+
+        .student-card.moderate {
+            border-left-color: #FF9800;
+        }
+
+        .student-card.distracted {
+            border-left-color: #F44336;
+        }
+
+        .student-emotion {
+            font-size: 28px;
+            flex-shrink: 0;
+        }
+
+        .student-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .student-name {
+            font-weight: 600;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .student-emotion-text {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .student-score-wrap {
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .student-score {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .attention-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+
+        .attention-dot.focused {
+            background: #4CAF50;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .attention-dot.moderate {
+            background: #FF9800;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .attention-dot.distracted {
+            background: #F44336;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+
+        .student-attention-label {
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        /* ── FPS Indicator ────────────────────────────────────────── */
+        .fps-indicator {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0,0,0,0.6);
+            color: #4CAF50;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: monospace;
+            backdrop-filter: blur(4px);
+        }
+
+        /* ── Bottom Charts ────────────────────────────────────────── */
+        .bottom-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 0 32px 20px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+
+        /* ── Footer ───────────────────────────────────────────────── */
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 16px 32px 24px;
+        }
+
+        /* ── Modal ────────────────────────────────────────────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #fff;
+            border-radius: 16px;
+            width: 500px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalIn 0.2s ease-out;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            line-height: 1;
+            padding: 4px;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #555;
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            border-color: #1a73e8;
+        }
+
+        .capture-area {
+            margin: 16px 0;
+        }
+
+        #reg-webcam {
+            width: 100%;
+            border-radius: 8px;
+            background: #000;
+        }
+
+        .captured-photos {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .captured-photos img {
+            width: 80px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 2px solid #ddd;
+        }
+
+        .capture-count {
+            font-size: 13px;
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        /* ── Toast Notifications ──────────────────────────────────── */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: toastIn 0.3s ease-out;
+            max-width: 400px;
+        }
+
+        .toast.error {
+            background: #F44336;
+        }
+
+        .toast.success {
+            background: #4CAF50;
+        }
+
+        .toast.info {
+            background: #1a73e8;
+        }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(40px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ── Loading Spinner ──────────────────────────────────────── */
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #bbb;
+            padding: 40px 20px;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
     <!-- Header -->
-    <header class="header">
-        <div class="header-left">
-            <h1>Öğrenci Dikkat Takip Sistemi</h1>
+    <div class="header">
+        <h1>Ogrenci Dikkat Takip Sistemi</h1>
+        <div class="session-controls">
+            <input type="text" id="session-name" placeholder="Oturum Adi">
+            <select id="session-mode">
+                <option value="online">Online Ders</option>
+                <option value="face-to-face">Yuz Yuze Ders</option>
+            </select>
+            <button class="btn btn-start" id="btn-start" onclick="startSession()">Oturum Baslat</button>
+            <button class="btn btn-stop" id="btn-stop" onclick="stopSession()" disabled>Oturum Durdur</button>
         </div>
-        <div class="header-right">
-            <span id="fps-indicator" class="badge badge-info">0 FPS</span>
-            <span id="session-badge" class="badge badge-secondary">Oturum Yok</span>
-            <button id="theme-toggle" class="btn btn-icon" title="Tema Degistir">
-                <span id="theme-icon">&#9790;</span>
-            </button>
-        </div>
-    </header>
+    </div>
 
-    <main class="main-layout">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <!-- Session Controls -->
-            <section class="card">
-                <h2 class="card-title">Oturum Kontrolu</h2>
-                <div class="form-group">
-                    <label for="session-name">Oturum Adi</label>
-                    <input type="text" id="session-name" placeholder="ör. Matematik Dersi">
-                </div>
-                <div class="form-group">
-                    <label for="session-mode">Mod</label>
-                    <select id="session-mode">
-                        <option value="online">Cevrimici</option>
-                        <option value="face-to-face">Yuz Yuze</option>
-                    </select>
-                </div>
-                <div class="btn-group">
-                    <button id="btn-start-session" class="btn btn-primary">Oturumu Baslat</button>
-                    <button id="btn-stop-session" class="btn btn-danger" disabled>Oturumu Bitir</button>
-                </div>
-            </section>
-
-            <!-- Student List -->
-            <section class="card">
-                <div class="card-header">
-                    <h2 class="card-title">Ogrenciler</h2>
-                    <button id="btn-open-register" class="btn btn-sm btn-primary">+ Kayit</button>
-                </div>
-                <div id="student-list" class="student-list">
-                    <p class="text-muted">Henuz ogrenci kaydedilmedi.</p>
-                </div>
-            </section>
-
-            <!-- Export -->
-            <section class="card">
-                <h2 class="card-title">Veri Aktarimi</h2>
-                <button id="btn-export" class="btn btn-secondary btn-block">Excel Indir</button>
-            </section>
-        </aside>
-
-        <!-- Main Content -->
-        <div class="content">
-            <!-- Video & Metrics Row -->
-            <div class="content-top">
-                <!-- Video Feed -->
-                <section class="card video-card">
-                    <h2 class="card-title">Canli Goruntu</h2>
-                    <div class="video-container">
-                        <video id="webcam" autoplay playsinline muted></video>
-                        <canvas id="overlay-canvas"></canvas>
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Left Panel -->
+        <div class="left-panel">
+            <!-- Video Feed -->
+            <div class="card">
+                <div class="video-container" id="video-container">
+                    <canvas id="webcam-canvas" width="960" height="540"></canvas>
+                    <div class="video-overlay">
+                        <span class="video-badge live" id="live-badge" style="display:none;">CANLI</span>
+                        <span class="video-badge" id="session-badge" style="display:none;"></span>
                     </div>
-                    <div class="video-controls">
-                        <button id="btn-start-camera" class="btn btn-primary">Kamerayi Baslat</button>
-                        <button id="btn-stop-camera" class="btn btn-danger" disabled>Kamerayi Durdur</button>
+                    <div class="fps-indicator" id="fps-indicator">0 FPS</div>
+                    <div class="video-placeholder" id="video-placeholder">
+                        <div class="icon">&#127909;</div>
+                        <div>Kamera Aciliyor...</div>
                     </div>
-                </section>
-
-                <!-- Real-time Metrics -->
-                <section class="card metrics-card">
-                    <h2 class="card-title">Anlik Metrikler</h2>
-                    <!-- Class Average Gauge -->
-                    <div class="gauge-section">
-                        <h3>Sinif Ortalamasi</h3>
-                        <div class="gauge">
-                            <svg viewBox="0 0 200 120" class="gauge-svg">
-                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e0e0e0" stroke-width="12" stroke-linecap="round"/>
-                                <path id="gauge-fill" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#4CAF50" stroke-width="12" stroke-linecap="round" stroke-dasharray="0 251.2"/>
-                            </svg>
-                            <div class="gauge-value" id="gauge-value">0%</div>
-                        </div>
-                    </div>
-                    <!-- Per-student cards -->
-                    <div id="student-metrics" class="student-metrics">
-                        <p class="text-muted">Analiz bekleniyor...</p>
-                    </div>
-                </section>
+                </div>
             </div>
 
-            <!-- Charts Row -->
-            <div class="content-bottom">
-                <section class="card chart-card">
-                    <h2 class="card-title">Dikkat Zaman Cizgisi</h2>
-                    <canvas id="chart-timeline"></canvas>
-                </section>
-                <section class="card chart-card">
-                    <h2 class="card-title">Duygu Dagilimi</h2>
-                    <canvas id="chart-emotions"></canvas>
-                </section>
-                <section class="card chart-card">
-                    <h2 class="card-title">Ogrenci Bazli Dikkat</h2>
-                    <canvas id="chart-students"></canvas>
-                </section>
+            <!-- Attention Timeline -->
+            <div class="card">
+                <div class="card-header">Dikkat Zaman Cizelgesi</div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="timeline-chart"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
-    </main>
+
+        <!-- Right Panel -->
+        <div class="right-panel">
+            <!-- Class Average Score -->
+            <div class="card">
+                <div class="card-header">Sinif Ortalamasi</div>
+                <div class="score-display">
+                    <div class="score-value" id="avg-score" style="color:#999;">--</div>
+                    <div class="score-label" id="avg-label" style="color:#999;">Veri bekleniyor</div>
+                    <div class="score-sublabel">Dikkat Skoru</div>
+                </div>
+            </div>
+
+            <!-- Student Cards -->
+            <div class="card" style="flex:1;">
+                <div class="card-header">Ogrenciler</div>
+                <div class="student-list" id="student-list">
+                    <div class="empty-state">Henuz ogrenci algilanmadi</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Charts Section -->
+    <div class="bottom-section">
+        <div class="card">
+            <div class="card-header">Duygu Dagilimi</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="emotion-chart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">Ogrenci Bazli Dikkat Skorlari</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="student-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <button class="btn btn-primary" onclick="openRegisterModal()">Ogrenci Kayit</button>
+        <button class="btn btn-export" onclick="exportExcel()">Excel Indir</button>
+    </div>
 
     <!-- Student Registration Modal -->
-    <div id="register-modal" class="modal hidden">
-        <div class="modal-backdrop"></div>
-        <div class="modal-content card">
+    <div class="modal-overlay" id="register-modal">
+        <div class="modal">
             <div class="modal-header">
-                <h2>Yeni Ogrenci Kaydi</h2>
-                <button id="btn-close-modal" class="btn btn-icon">&times;</button>
+                <h2>Ogrenci Kayit</h2>
+                <button class="modal-close" onclick="closeRegisterModal()">&times;</button>
             </div>
-            <div class="form-group">
-                <label for="reg-name">Ad Soyad</label>
-                <input type="text" id="reg-name" placeholder="ör. Ahmet Yilmaz">
-            </div>
-            <div class="form-group">
-                <label for="reg-email">E-posta (istege bagli)</label>
-                <input type="email" id="reg-email" placeholder="ör. ahmet@okul.edu.tr">
-            </div>
-            <div class="form-group">
-                <label>Yuz Fotograflari</label>
-                <div class="capture-area">
-                    <video id="reg-webcam" autoplay playsinline muted></video>
-                    <canvas id="reg-canvas" class="hidden"></canvas>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="reg-name">Ad Soyad</label>
+                    <input type="text" id="reg-name" placeholder="Ogrencinin adi">
                 </div>
-                <div class="captured-images" id="captured-images"></div>
-                <div class="btn-group">
-                    <button id="btn-capture" class="btn btn-secondary">Fotograf Cek</button>
-                    <button id="btn-clear-captures" class="btn btn-danger btn-sm">Temizle</button>
+                <div class="form-group">
+                    <label for="reg-email">E-posta</label>
+                    <input type="email" id="reg-email" placeholder="ornek@mail.com">
+                </div>
+                <div class="capture-area">
+                    <label style="font-size:14px;font-weight:500;color:#555;margin-bottom:6px;display:block;">Yuz Fotografi</label>
+                    <video id="reg-webcam" autoplay playsinline></video>
+                    <button class="btn btn-primary" onclick="captureRegPhoto()" style="margin-top:10px;">Fotograf Cek</button>
+                    <div class="captured-photos" id="captured-photos"></div>
+                    <div class="capture-count" id="capture-count">0 / 5 fotograf cekildi</div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button id="btn-register" class="btn btn-primary">Kaydet</button>
-                <span id="reg-status" class="text-muted"></span>
+                <button class="btn btn-secondary" onclick="closeRegisterModal()">Iptal</button>
+                <button class="btn btn-primary" id="btn-register" onclick="registerStudent()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Confirmation Modal -->
+    <div class="modal-overlay" id="export-modal">
+        <div class="modal" style="width:400px;">
+            <div class="modal-header">
+                <h2>Excel Raporu</h2>
+                <button class="modal-close" onclick="closeExportModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Dikkat raporu Excel dosyasi olarak indirilecektir. Devam etmek istiyor musunuz?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeExportModal()">Iptal</button>
+                <button class="btn btn-export" onclick="confirmExport()">Indir</button>
             </div>
         </div>
     </div>
 
     <!-- Toast Container -->
-    <div id="toast-container"></div>
+    <div class="toast-container" id="toast-container"></div>
 
-    <script src="/static/js/app.js"></script>
+    <script>
+        // ── State ────────────────────────────────────────────────────
+        let sessionId = null;
+        let analyzeInterval = null;
+        let webcamStream = null;
+        let video = null;
+        let canvas = null;
+        let ctx = null;
+        let fpsFrames = 0;
+        let fpsLast = performance.now();
+        let regStream = null;
+        let capturedBlobs = [];
+
+        // Chart data stores
+        const timelineData = [];
+        const emotionCounts = { positive: 0, neutral: 0, negative: 0 };
+        const studentScores = {};  // name -> [scores]
+
+        // ── Charts ───────────────────────────────────────────────────
+        const timelineChart = new Chart(document.getElementById('timeline-chart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Dikkat Skoru',
+                    data: [],
+                    borderColor: '#1a73e8',
+                    backgroundColor: 'rgba(26,115,232,0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { min: 0, max: 1, ticks: { stepSize: 0.2 } },
+                    x: { display: false }
+                },
+                plugins: {
+                    legend: { display: false }
+                },
+                animation: { duration: 200 }
+            }
+        });
+
+        const emotionChart = new Chart(document.getElementById('emotion-chart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Pozitif', 'Notr', 'Negatif'],
+                datasets: [{
+                    data: [0, 0, 0],
+                    backgroundColor: ['#4CAF50', '#FF9800', '#F44336'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                animation: { duration: 300 }
+            }
+        });
+
+        const studentChart = new Chart(document.getElementById('student-chart'), {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Ortalama Dikkat Skoru',
+                    data: [],
+                    backgroundColor: [],
+                    borderRadius: 6,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { min: 0, max: 1, ticks: { stepSize: 0.2 } },
+                    x: { ticks: { font: { size: 11 } } }
+                },
+                plugins: {
+                    legend: { display: false }
+                },
+                animation: { duration: 300 }
+            }
+        });
+
+        // ── Webcam Setup ─────────────────────────────────────────────
+        async function initWebcam() {
+            canvas = document.getElementById('webcam-canvas');
+            ctx = canvas.getContext('2d');
+
+            try {
+                webcamStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 960, height: 540, facingMode: 'user' }
+                });
+                video = document.createElement('video');
+                video.srcObject = webcamStream;
+                video.setAttribute('playsinline', '');
+                await video.play();
+
+                document.getElementById('video-placeholder').style.display = 'none';
+                document.getElementById('live-badge').style.display = 'inline';
+                drawFrame();
+                showToast('Kamera basariyla acildi', 'success');
+            } catch (err) {
+                showToast('Kamera erisimi saglanamadi: ' + err.message, 'error');
+            }
+        }
+
+        function drawFrame() {
+            if (!video || video.paused || video.ended) return;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // FPS counter
+            fpsFrames++;
+            const now = performance.now();
+            if (now - fpsLast >= 1000) {
+                document.getElementById('fps-indicator').textContent = fpsFrames + ' FPS';
+                fpsFrames = 0;
+                fpsLast = now;
+            }
+
+            requestAnimationFrame(drawFrame);
+        }
+
+        // ── Session Management ───────────────────────────────────────
+        async function startSession() {
+            const name = document.getElementById('session-name').value.trim();
+            if (!name) {
+                showToast('Lutfen bir oturum adi girin', 'error');
+                return;
+            }
+
+            const mode = document.getElementById('session-mode').value;
+            const btn = document.getElementById('btn-start');
+            btn.innerHTML = '<span class="loading-spinner"></span> Baslatiliyor...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/sessions/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, mode })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Oturum baslatilamadi');
+
+                sessionId = data.session_id;
+                document.getElementById('btn-stop').disabled = false;
+                document.getElementById('session-badge').textContent = name;
+                document.getElementById('session-badge').style.display = 'inline';
+
+                // Start analyzing frames
+                analyzeInterval = setInterval(analyzeFrame, 500);
+                showToast('Oturum baslatildi: ' + name, 'success');
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+
+            btn.innerHTML = 'Oturum Baslat';
+        }
+
+        async function stopSession() {
+            if (!sessionId) return;
+
+            const btn = document.getElementById('btn-stop');
+            btn.innerHTML = '<span class="loading-spinner"></span> Durduruluyor...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/sessions/${sessionId}/stop`, { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Oturum durdurulamadi');
+
+                if (analyzeInterval) {
+                    clearInterval(analyzeInterval);
+                    analyzeInterval = null;
+                }
+
+                sessionId = null;
+                document.getElementById('btn-start').disabled = false;
+                document.getElementById('session-badge').style.display = 'none';
+                showToast('Oturum durduruldu', 'info');
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+
+            btn.innerHTML = 'Oturum Durdur';
+        }
+
+        // ── Frame Analysis ───────────────────────────────────────────
+        async function analyzeFrame() {
+            if (!canvas) return;
+
+            try {
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                const base64 = dataUrl.split(',')[1];
+
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64 })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Analiz hatasi');
+
+                updateDashboard(data);
+            } catch (err) {
+                // Silently ignore transient analysis errors
+                console.warn('Analyze error:', err.message);
+            }
+        }
+
+        // ── Dashboard Update ─────────────────────────────────────────
+        function updateDashboard(data) {
+            const results = data.results || [];
+
+            // Update student cards
+            updateStudentCards(results);
+
+            // Update class average
+            updateClassAverage(results);
+
+            // Update timeline chart
+            updateTimeline(results);
+
+            // Update emotion distribution
+            updateEmotionChart(results);
+
+            // Update per-student bar chart
+            updateStudentChart(results);
+
+            // Draw bounding boxes on canvas
+            drawBoundingBoxes(results);
+        }
+
+        function updateStudentCards(results) {
+            const container = document.getElementById('student-list');
+
+            if (results.length === 0) {
+                container.innerHTML = '<div class="empty-state">Henuz ogrenci algilanmadi</div>';
+                return;
+            }
+
+            container.innerHTML = results.map(r => {
+                const emoji = getEmotionEmoji(r.emotion);
+                const levelClass = getAttentionClass(r.attention_score);
+                const levelLabel = getAttentionLabel(r.attention_score);
+                const scoreColor = getScoreColor(r.attention_score);
+                const name = r.name || 'Taninmayan';
+
+                return `
+                    <div class="student-card ${levelClass}">
+                        <div class="student-emotion">${emoji}</div>
+                        <div class="student-info">
+                            <div class="student-name">${escapeHtml(name)}</div>
+                            <div class="student-emotion-text">${translateEmotion(r.emotion)}</div>
+                        </div>
+                        <div class="student-score-wrap">
+                            <div class="student-score" style="color:${scoreColor}">
+                                ${(r.attention_score * 100).toFixed(0)}
+                            </div>
+                            <div class="student-attention-label">
+                                <span class="attention-dot ${levelClass}"></span>
+                                ${levelLabel}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateClassAverage(results) {
+            const scoreEl = document.getElementById('avg-score');
+            const labelEl = document.getElementById('avg-label');
+
+            if (results.length === 0) {
+                scoreEl.textContent = '--';
+                scoreEl.style.color = '#999';
+                labelEl.textContent = 'Veri bekleniyor';
+                labelEl.style.color = '#999';
+                return;
+            }
+
+            const avg = results.reduce((sum, r) => sum + r.attention_score, 0) / results.length;
+            const pct = (avg * 100).toFixed(0);
+            const color = getScoreColor(avg);
+            const label = getAttentionLabel(avg);
+
+            scoreEl.textContent = pct;
+            scoreEl.style.color = color;
+            labelEl.textContent = label;
+            labelEl.style.color = color;
+        }
+
+        function updateTimeline(results) {
+            if (results.length === 0) return;
+
+            const avg = results.reduce((sum, r) => sum + r.attention_score, 0) / results.length;
+            timelineData.push(avg);
+
+            // Keep last 60 points
+            if (timelineData.length > 60) timelineData.shift();
+
+            timelineChart.data.labels = timelineData.map((_, i) => i);
+            timelineChart.data.datasets[0].data = [...timelineData];
+            timelineChart.update('none');
+        }
+
+        function updateEmotionChart(results) {
+            results.forEach(r => {
+                const cat = categorizeEmotion(r.emotion);
+                emotionCounts[cat]++;
+            });
+
+            emotionChart.data.datasets[0].data = [
+                emotionCounts.positive,
+                emotionCounts.neutral,
+                emotionCounts.negative
+            ];
+            emotionChart.update('none');
+        }
+
+        function updateStudentChart(results) {
+            results.forEach(r => {
+                const name = r.name || 'Taninmayan';
+                if (!studentScores[name]) studentScores[name] = [];
+                studentScores[name].push(r.attention_score);
+            });
+
+            const names = Object.keys(studentScores);
+            const avgs = names.map(n => {
+                const scores = studentScores[n];
+                return scores.reduce((a, b) => a + b, 0) / scores.length;
+            });
+            const colors = avgs.map(a => getScoreColor(a));
+
+            studentChart.data.labels = names;
+            studentChart.data.datasets[0].data = avgs;
+            studentChart.data.datasets[0].backgroundColor = colors;
+            studentChart.update('none');
+        }
+
+        function drawBoundingBoxes(results) {
+            if (!ctx || !video) return;
+
+            // Redraw clean frame first
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            results.forEach(r => {
+                if (!r.bbox) return;
+                const [x1, y1, x2, y2] = r.bbox;
+                const color = getScoreColor(r.attention_score);
+                const name = r.name || 'Taninmayan';
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+                // Label background
+                const label = `${name} (${(r.attention_score * 100).toFixed(0)}%)`;
+                ctx.font = '13px sans-serif';
+                const tw = ctx.measureText(label).width;
+                ctx.fillStyle = color;
+                ctx.fillRect(x1, y1 - 22, tw + 10, 20);
+
+                // Label text
+                ctx.fillStyle = '#fff';
+                ctx.fillText(label, x1 + 5, y1 - 7);
+            });
+        }
+
+        // ── Helpers ──────────────────────────────────────────────────
+        function getScoreColor(score) {
+            if (score > 0.6) return '#4CAF50';
+            if (score >= 0.35) return '#FF9800';
+            return '#F44336';
+        }
+
+        function getAttentionClass(score) {
+            if (score > 0.6) return 'focused';
+            if (score >= 0.35) return 'moderate';
+            return 'distracted';
+        }
+
+        function getAttentionLabel(score) {
+            if (score > 0.6) return 'Dikkatli';
+            if (score >= 0.35) return 'Orta';
+            return 'Dikkatsiz';
+        }
+
+        function getEmotionEmoji(emotion) {
+            const cat = categorizeEmotion(emotion);
+            if (cat === 'positive') return '\u{1F60A}';
+            if (cat === 'neutral') return '\u{1F610}';
+            return '\u{1F61F}';
+        }
+
+        function categorizeEmotion(emotion) {
+            const e = (emotion || '').toLowerCase();
+            if (['happy', 'surprise'].includes(e)) return 'positive';
+            if (['neutral'].includes(e)) return 'neutral';
+            return 'negative';
+        }
+
+        function translateEmotion(emotion) {
+            const map = {
+                happy: 'Mutlu',
+                sad: 'Uzgun',
+                angry: 'Kizgin',
+                surprise: 'Saskin',
+                fear: 'Korkmus',
+                disgust: 'Igrenme',
+                neutral: 'Notr'
+            };
+            return map[(emotion || '').toLowerCase()] || emotion;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ── Student Registration ─────────────────────────────────────
+        async function openRegisterModal() {
+            capturedBlobs = [];
+            document.getElementById('captured-photos').innerHTML = '';
+            document.getElementById('capture-count').textContent = '0 / 5 fotograf cekildi';
+            document.getElementById('reg-name').value = '';
+            document.getElementById('reg-email').value = '';
+            document.getElementById('register-modal').classList.add('active');
+
+            try {
+                regStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+                document.getElementById('reg-webcam').srcObject = regStream;
+            } catch (err) {
+                showToast('Kamera erisimi saglanamadi', 'error');
+            }
+        }
+
+        function closeRegisterModal() {
+            document.getElementById('register-modal').classList.remove('active');
+            if (regStream) {
+                regStream.getTracks().forEach(t => t.stop());
+                regStream = null;
+            }
+            capturedBlobs = [];
+        }
+
+        function captureRegPhoto() {
+            if (capturedBlobs.length >= 5) {
+                showToast('Maksimum 5 fotograf cekilebilir', 'info');
+                return;
+            }
+
+            const regVideo = document.getElementById('reg-webcam');
+            const tmpCanvas = document.createElement('canvas');
+            tmpCanvas.width = regVideo.videoWidth || 640;
+            tmpCanvas.height = regVideo.videoHeight || 480;
+            const tmpCtx = tmpCanvas.getContext('2d');
+            tmpCtx.drawImage(regVideo, 0, 0);
+
+            tmpCanvas.toBlob(blob => {
+                if (!blob) return;
+                capturedBlobs.push(blob);
+
+                // Show thumbnail
+                const url = URL.createObjectURL(blob);
+                const img = document.createElement('img');
+                img.src = url;
+                document.getElementById('captured-photos').appendChild(img);
+                document.getElementById('capture-count').textContent =
+                    `${capturedBlobs.length} / 5 fotograf cekildi`;
+            }, 'image/jpeg', 0.85);
+        }
+
+        async function registerStudent() {
+            const name = document.getElementById('reg-name').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+
+            if (!name) {
+                showToast('Lutfen ogrenci adini girin', 'error');
+                return;
+            }
+            if (capturedBlobs.length < 1) {
+                showToast('En az 1 fotograf cekiniz', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btn-register');
+            btn.innerHTML = '<span class="loading-spinner"></span> Kaydediliyor...';
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('name', name);
+            if (email) formData.append('email', email);
+            capturedBlobs.forEach((blob, i) => {
+                formData.append('images', blob, `photo_${i}.jpg`);
+            });
+
+            try {
+                const res = await fetch('/api/students/register', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Kayit basarisiz');
+
+                showToast(`${name} basariyla kaydedildi`, 'success');
+                closeRegisterModal();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+
+            btn.innerHTML = 'Kaydet';
+            btn.disabled = false;
+        }
+
+        // ── Excel Export ─────────────────────────────────────────────
+        function exportExcel() {
+            document.getElementById('export-modal').classList.add('active');
+        }
+
+        function closeExportModal() {
+            document.getElementById('export-modal').classList.remove('active');
+        }
+
+        function confirmExport() {
+            let url = '/api/export/excel';
+            if (sessionId) url += '?session_id=' + sessionId;
+            window.location = url;
+            closeExportModal();
+            showToast('Excel raporu indiriliyor...', 'info');
+        }
+
+        // ── Toast Notifications ──────────────────────────────────────
+        function showToast(message, type) {
+            type = type || 'info';
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            setTimeout(function() {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(40px)';
+                toast.style.transition = 'all 0.3s';
+                setTimeout(function() { toast.remove(); }, 300);
+            }, 3500);
+        }
+
+        // ── Init ─────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', function() {
+            initWebcam();
+        });
+    </script>
 </body>
 </html>
