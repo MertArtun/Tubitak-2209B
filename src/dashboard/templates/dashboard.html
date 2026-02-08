@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Öğrenci Dikkat Takip Sistemi</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <h1>Öğrenci Dikkat Takip Sistemi</h1>
+        </div>
+        <div class="header-right">
+            <span id="fps-indicator" class="badge badge-info">0 FPS</span>
+            <span id="session-badge" class="badge badge-secondary">Oturum Yok</span>
+            <button id="theme-toggle" class="btn btn-icon" title="Tema Degistir">
+                <span id="theme-icon">&#9790;</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="main-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Session Controls -->
+            <section class="card">
+                <h2 class="card-title">Oturum Kontrolu</h2>
+                <div class="form-group">
+                    <label for="session-name">Oturum Adi</label>
+                    <input type="text" id="session-name" placeholder="ör. Matematik Dersi">
+                </div>
+                <div class="form-group">
+                    <label for="session-mode">Mod</label>
+                    <select id="session-mode">
+                        <option value="online">Cevrimici</option>
+                        <option value="face-to-face">Yuz Yuze</option>
+                    </select>
+                </div>
+                <div class="btn-group">
+                    <button id="btn-start-session" class="btn btn-primary">Oturumu Baslat</button>
+                    <button id="btn-stop-session" class="btn btn-danger" disabled>Oturumu Bitir</button>
+                </div>
+            </section>
+
+            <!-- Student List -->
+            <section class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Ogrenciler</h2>
+                    <button id="btn-open-register" class="btn btn-sm btn-primary">+ Kayit</button>
+                </div>
+                <div id="student-list" class="student-list">
+                    <p class="text-muted">Henuz ogrenci kaydedilmedi.</p>
+                </div>
+            </section>
+
+            <!-- Export -->
+            <section class="card">
+                <h2 class="card-title">Veri Aktarimi</h2>
+                <button id="btn-export" class="btn btn-secondary btn-block">Excel Indir</button>
+            </section>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="content">
+            <!-- Video & Metrics Row -->
+            <div class="content-top">
+                <!-- Video Feed -->
+                <section class="card video-card">
+                    <h2 class="card-title">Canli Goruntu</h2>
+                    <div class="video-container">
+                        <video id="webcam" autoplay playsinline muted></video>
+                        <canvas id="overlay-canvas"></canvas>
+                    </div>
+                    <div class="video-controls">
+                        <button id="btn-start-camera" class="btn btn-primary">Kamerayi Baslat</button>
+                        <button id="btn-stop-camera" class="btn btn-danger" disabled>Kamerayi Durdur</button>
+                    </div>
+                </section>
+
+                <!-- Real-time Metrics -->
+                <section class="card metrics-card">
+                    <h2 class="card-title">Anlik Metrikler</h2>
+                    <!-- Class Average Gauge -->
+                    <div class="gauge-section">
+                        <h3>Sinif Ortalamasi</h3>
+                        <div class="gauge">
+                            <svg viewBox="0 0 200 120" class="gauge-svg">
+                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e0e0e0" stroke-width="12" stroke-linecap="round"/>
+                                <path id="gauge-fill" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#4CAF50" stroke-width="12" stroke-linecap="round" stroke-dasharray="0 251.2"/>
+                            </svg>
+                            <div class="gauge-value" id="gauge-value">0%</div>
+                        </div>
+                    </div>
+                    <!-- Per-student cards -->
+                    <div id="student-metrics" class="student-metrics">
+                        <p class="text-muted">Analiz bekleniyor...</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="content-bottom">
+                <section class="card chart-card">
+                    <h2 class="card-title">Dikkat Zaman Cizgisi</h2>
+                    <canvas id="chart-timeline"></canvas>
+                </section>
+                <section class="card chart-card">
+                    <h2 class="card-title">Duygu Dagilimi</h2>
+                    <canvas id="chart-emotions"></canvas>
+                </section>
+                <section class="card chart-card">
+                    <h2 class="card-title">Ogrenci Bazli Dikkat</h2>
+                    <canvas id="chart-students"></canvas>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Student Registration Modal -->
+    <div id="register-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h2>Yeni Ogrenci Kaydi</h2>
+                <button id="btn-close-modal" class="btn btn-icon">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="reg-name">Ad Soyad</label>
+                <input type="text" id="reg-name" placeholder="ör. Ahmet Yilmaz">
+            </div>
+            <div class="form-group">
+                <label for="reg-email">E-posta (istege bagli)</label>
+                <input type="email" id="reg-email" placeholder="ör. ahmet@okul.edu.tr">
+            </div>
+            <div class="form-group">
+                <label>Yuz Fotograflari</label>
+                <div class="capture-area">
+                    <video id="reg-webcam" autoplay playsinline muted></video>
+                    <canvas id="reg-canvas" class="hidden"></canvas>
+                </div>
+                <div class="captured-images" id="captured-images"></div>
+                <div class="btn-group">
+                    <button id="btn-capture" class="btn btn-secondary">Fotograf Cek</button>
+                    <button id="btn-clear-captures" class="btn btn-danger btn-sm">Temizle</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-register" class="btn btn-primary">Kaydet</button>
+                <span id="reg-status" class="text-muted"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
