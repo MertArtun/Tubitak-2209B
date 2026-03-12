@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import io
 import logging
 import tempfile
 from datetime import datetime
@@ -11,12 +10,15 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from flask import Flask, Response, jsonify, redirect, render_template, request, send_file
+from flask import Flask, jsonify, redirect, render_template, request, send_file
 from flask_cors import CORS
 
 from configs.config import DB_PATH
 from src.api.inference import EmotionInferenceEngine
+from src.attention.head_pose import HeadPoseEstimator
+from src.attention.hybrid_scorer import HybridAttentionScorer
 from src.attention.scorer import AttentionScorer
+from src.attention.tracker import StudentAttentionTracker
 from src.face_recognition.database import StudentDatabase
 from src.face_recognition.detector import FaceDetector
 from src.face_recognition.recognizer import FaceRecognizer
@@ -29,7 +31,11 @@ detector: FaceDetector | None = None
 recognizer: FaceRecognizer | None = None
 db: StudentDatabase | None = None
 scorer: AttentionScorer | None = None
+head_pose_estimator: HeadPoseEstimator | None = None
+hybrid_scorer: HybridAttentionScorer | None = None
+tracker: StudentAttentionTracker | None = None
 active_session_id: int | None = None
+active_mode: str = "online"
 frame_count: int = 0
 
 
@@ -46,7 +52,7 @@ def create_app(
     Returns:
         Configured Flask app instance.
     """
-    global engine, detector, recognizer, db, scorer
+    global engine, detector, recognizer, db, scorer, head_pose_estimator, hybrid_scorer, tracker
 
     app = Flask(
         __name__,
@@ -65,6 +71,9 @@ def create_app(
     recognizer = FaceRecognizer()
     db = StudentDatabase(db_path)
     scorer = AttentionScorer()
+    head_pose_estimator = HeadPoseEstimator()
+    hybrid_scorer = HybridAttentionScorer()
+    tracker = StudentAttentionTracker()
 
     _register_routes(app)
     logger.info("Flask app created. Model: %s  DB: %s", model_path, db_path)
@@ -139,21 +148,65 @@ def _register_routes(app: Flask) -> None:  # noqa: C901
                 # Recognise student
                 student_id: int | None = None
                 student_name: str | None = None
+                identity_confidence: float = 0.0
                 try:
                     embedding = recognizer.get_embedding(face_info)
-                    student_id, _ = recognizer.identify(embedding, known_embeddings)
+                    student_id, similarity = recognizer.identify(
+                        embedding, known_embeddings
+                    )
                     if student_id is not None:
+                        identity_confidence = similarity
                         student = db.get_student(student_id)
                         student_name = student["name"] if student else None
                 except ValueError:
                     pass
 
+                is_known = student_id is not None
+
                 # Predict emotion
                 prediction = engine.predict(face_crop)
 
-                # Compute attention score
-                attention_score = scorer.engagement_score([prediction])
+                # Compute attention score (emotion-based)
+                emotion_score = scorer.engagement_score([prediction])
+                attention_score = emotion_score
                 attention_level = scorer.classify_attention(attention_score)
+
+                # Head pose for face-to-face mode
+                pose_data = None
+                if active_mode == "face-to-face" and head_pose_estimator is not None:
+                    pose_result = head_pose_estimator.estimate_pose(frame)
+                    if pose_result is not None:
+                        yaw, pitch, roll = pose_result
+                        pose_score = HeadPoseEstimator.get_pose_score(yaw, pitch)
+                        gaze_dir = HeadPoseEstimator.get_gaze_direction(yaw, pitch)
+                        pose_data = {
+                            "yaw": round(yaw, 2),
+                            "pitch": round(pitch, 2),
+                            "roll": round(roll, 2),
+                            "gaze_direction": gaze_dir,
+                            "pose_score": round(pose_score, 2),
+                        }
+                        # Use hybrid scorer in face-to-face mode
+                        attention_score = hybrid_scorer.compute_score(
+                            emotion_score, pose_score
+                        )
+                        attention_level = hybrid_scorer.classify_attention(
+                            attention_score
+                        )
+
+                # Track student and detect anomalies
+                anomaly_detected = False
+                if is_known and tracker is not None:
+                    tracker.update(
+                        student_id=str(student_id),
+                        emotion=prediction["class"],
+                        confidence=prediction["confidence"],
+                        attention_score=attention_score,
+                        attention_level=attention_level,
+                    )
+                    timeline = tracker.get_timeline(str(student_id))
+                    score_history = [t["score"] for t in timeline]
+                    anomaly_detected = scorer.detect_anomaly(score_history)
 
                 # Log to database if a session is active and the student is known
                 if active_session_id is not None and student_id is not None:
@@ -166,17 +219,22 @@ def _register_routes(app: Flask) -> None:  # noqa: C901
                         attention_level=attention_level,
                     )
 
-                results.append(
-                    {
-                        "student_id": student_id,
-                        "name": student_name,
-                        "emotion": prediction["class"],
-                        "confidence": round(prediction["confidence"], 4),
-                        "attention_score": round(attention_score, 4),
-                        "attention_level": attention_level,
-                        "bbox": bbox,
-                    }
-                )
+                result_entry = {
+                    "student_id": student_id,
+                    "name": student_name,
+                    "is_known": is_known,
+                    "identity_confidence": round(identity_confidence, 4),
+                    "emotion": prediction["class"],
+                    "confidence": round(prediction["confidence"], 4),
+                    "attention_score": round(attention_score, 4),
+                    "attention_level": attention_level,
+                    "anomaly_detected": anomaly_detected,
+                    "bbox": bbox,
+                }
+                if pose_data is not None:
+                    result_entry["pose"] = pose_data
+
+                results.append(result_entry)
 
             return jsonify(
                 {
@@ -283,7 +341,7 @@ def _register_routes(app: Flask) -> None:  # noqa: C901
     @app.route("/api/sessions/start", methods=["POST"])
     def start_session():  # noqa: ANN202
         """Create and activate a new session."""
-        global active_session_id
+        global active_session_id, active_mode
         try:
             body = request.get_json()
             if not body or "name" not in body:
@@ -296,6 +354,7 @@ def _register_routes(app: Flask) -> None:  # noqa: C901
 
             session_id = db.create_session(name, mode)
             active_session_id = session_id
+            active_mode = mode
 
             return jsonify({"session_id": session_id, "name": name, "mode": mode})
         except Exception as exc:
@@ -306,11 +365,14 @@ def _register_routes(app: Flask) -> None:  # noqa: C901
     @app.route("/api/sessions/<int:session_id>/stop", methods=["POST"])
     def stop_session(session_id: int):  # noqa: ANN202
         """Stop an active session."""
-        global active_session_id
+        global active_session_id, active_mode
         try:
             db.end_session(session_id)
             if active_session_id == session_id:
                 active_session_id = None
+                active_mode = "online"
+                if tracker is not None:
+                    tracker.reset()
 
             return jsonify(
                 {"session_id": session_id, "message": "Session stopped."}
