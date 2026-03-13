@@ -22,6 +22,7 @@ env/
 # Data & Models
 data/raw/
 data/processed/
+data/processed_merged/
 data/embeddings/
 *.onnx
 *.pth
@@ -49,3 +50,21 @@ Thumbs.db
 coverage/
 .coverage
 htmlcov/
+
+# Data files (large)
+data/processed_merged_split/
+data_split.tar.gz
+data/processed_merged.tar.gz
+*.tar.gz
+
+# Screenshots (Playwright/debug)
+*.png
+!src/dashboard/**/*.png
+
+# IDE / tool artifacts
+.playwright-mcp/
+.claude/
+
+# Training outputs
+checkpoints/
+onnx_models/
