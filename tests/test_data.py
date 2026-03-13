@@ -1,12 +1,10 @@
 """Tests for the data pipeline: config mappings, transforms, and sampling."""
 
-import numpy as np
-import pytest
 import torch
 
-from configs.config import CLASS_NAMES, CLASS_TO_IDX, FER_TO_3CLASS_IDX
+from configs.config import CLASS_NAMES, CLASS_TO_IDX, FER_TO_3CLASS_IDX, NUM_CLASSES
+from src.data.mixup import MixUpCutMix
 from src.data.transforms import get_train_transforms, get_val_transforms
-
 
 # ── Config mapping tests ──────────────────────────────────────────────────────
 
@@ -73,6 +71,81 @@ class TestTransforms:
         result1 = transform(image=sample_image.copy())["image"]
         result2 = transform(image=sample_image.copy())["image"]
         assert torch.allclose(result1, result2)
+
+    def test_phase1_transforms_output_shape(self, sample_image):
+        """Phase 1 transforms produce a (3, 224, 224) tensor."""
+        transform = get_train_transforms(phase=1)
+        result = transform(image=sample_image)["image"]
+        assert result.shape == (3, 224, 224)
+
+    def test_phase2_transforms_output_shape(self, sample_image):
+        """Phase 2 transforms produce a (3, 224, 224) tensor."""
+        transform = get_train_transforms(phase=2)
+        result = transform(image=sample_image)["image"]
+        assert result.shape == (3, 224, 224)
+
+    def test_get_train_transforms_phase_parameter(self, sample_image):
+        """Phase 1 and Phase 2 should return different pipeline objects."""
+        t1 = get_train_transforms(phase=1)
+        t2 = get_train_transforms(phase=2)
+        # They should be different pipeline configurations
+        assert len(t1.transforms) != len(t2.transforms)
+
+
+# ── MixUp / CutMix tests ────────────────────────────────────────────────────
+
+
+class TestMixUpCutMix:
+    """Verify MixUp and CutMix batch-level augmentation."""
+
+    def test_mixup_output_shape(self):
+        """MixUp should preserve image batch shape."""
+        mixer = MixUpCutMix(num_classes=NUM_CLASSES, mixup_alpha=0.2, cutmix_alpha=1.0, prob=1.0)
+        images = torch.randn(4, 3, 224, 224)
+        targets = torch.tensor([0, 1, 2, 1])
+        mixed_imgs, mixed_targets = mixer(images, targets)
+        assert mixed_imgs.shape == (4, 3, 224, 224)
+        assert mixed_targets.shape == (4, NUM_CLASSES)
+
+    def test_mixup_soft_labels_sum_to_one(self):
+        """Soft labels from MixUp should sum to 1.0 per sample."""
+        mixer = MixUpCutMix(num_classes=NUM_CLASSES, mixup_alpha=0.2, cutmix_alpha=1.0, prob=1.0)
+        images = torch.randn(8, 3, 224, 224)
+        targets = torch.tensor([0, 1, 2, 0, 1, 2, 0, 1])
+        _, mixed_targets = mixer(images, targets)
+        sums = mixed_targets.sum(dim=1)
+        assert torch.allclose(sums, torch.ones(8), atol=1e-5)
+
+    def test_cutmix_patches_applied(self):
+        """CutMix should modify at least part of the image batch."""
+        # Use high prob and run multiple times to ensure CutMix path is hit
+        mixer = MixUpCutMix(num_classes=NUM_CLASSES, mixup_alpha=0.2, cutmix_alpha=1.0, prob=1.0)
+        images = torch.randn(4, 3, 32, 32)
+        targets = torch.tensor([0, 1, 2, 0])
+
+        # Run multiple times to cover both MixUp and CutMix branches
+        any_different = False
+        for _ in range(20):
+            mixed_imgs, _ = mixer(images, targets)
+            if not torch.allclose(mixed_imgs, images, atol=1e-6):
+                any_different = True
+                break
+        assert any_different, "MixUp/CutMix should modify images"
+
+    def test_mixup_cutmix_no_op_when_prob_zero(self):
+        """With prob=0, images should remain unchanged and targets become one-hot."""
+        mixer = MixUpCutMix(num_classes=NUM_CLASSES, mixup_alpha=0.2, cutmix_alpha=1.0, prob=0.0)
+        images = torch.randn(4, 3, 32, 32)
+        targets = torch.tensor([0, 1, 2, 1])
+        mixed_imgs, mixed_targets = mixer(images, targets)
+        assert torch.allclose(mixed_imgs, images)
+        # Should be one-hot encoded
+        expected = torch.zeros(4, NUM_CLASSES)
+        expected[0, 0] = 1.0
+        expected[1, 1] = 1.0
+        expected[2, 2] = 1.0
+        expected[3, 1] = 1.0
+        assert torch.allclose(mixed_targets, expected)
 
 
 # ── Sampler tests ────────────────────────────────────────────────────────────

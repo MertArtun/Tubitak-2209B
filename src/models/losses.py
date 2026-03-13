@@ -68,6 +68,30 @@ class FocalLoss(nn.Module):
         return loss
 
 
+class SoftTargetCrossEntropy(nn.Module):
+    """Cross-entropy loss that supports both hard and soft target labels.
+
+    When targets are 1D (hard labels), falls back to standard F.cross_entropy.
+    When targets are 2D (soft labels / one-hot), computes:
+        -sum(target * log_softmax(logits)) per sample, then mean.
+    """
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        """Compute cross-entropy loss.
+
+        Args:
+            logits: Raw predictions of shape (N, C).
+            targets: Hard labels (N,) or soft labels (N, C).
+
+        Returns:
+            Scalar loss.
+        """
+        if targets.dim() == 1:
+            return F.cross_entropy(logits, targets)
+        log_probs = F.log_softmax(logits, dim=1)
+        return -(targets * log_probs).sum(dim=1).mean()
+
+
 def create_weighted_ce_loss(class_weights: torch.Tensor) -> nn.CrossEntropyLoss:
     """Create a weighted CrossEntropyLoss.
 

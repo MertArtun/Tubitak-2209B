@@ -57,6 +57,30 @@ VAL_RATIO = 0.15
 TEST_RATIO = 0.15
 RANDOM_SEED = 42
 
+# Merged dataset split ratios
+MERGED_TEST_RATIO = 0.10
+MERGED_VAL_RATIO = 0.10
+
+# ─── Data Cleaning ──────────────────────────────────────────────────────────
+PROCESSED_MERGED_DIR = DATA_DIR / "processed_merged"
+CLEANED_DATA_DIR = DATA_DIR / "cleaned"
+CLEANING_REPORTS_DIR = RESULTS_DIR / "data_cleaning"
+QUARANTINE_DIR = DATA_DIR / "quarantine"
+
+PHASH_HASH_SIZE = 16
+PHASH_HAMMING_THRESHOLD = 6
+ENABLE_NEAR_DUP_SCAN = True
+MAX_NEAR_DUP_CANDIDATES_PER_IMAGE = 4000
+MIN_IMAGE_SIZE = 10           # pixels
+MIN_FILE_SIZE_BYTES = 100
+
+FERPLUS_CONFIDENCE_THRESHOLD = 0.4
+
+# ─── MixUp / CutMix ────────────────────────────────────────────────────────
+MIXUP_ALPHA = 0.2
+CUTMIX_ALPHA = 1.0
+MIXUP_CUTMIX_PROB = 0.5
+
 # ImageNet normalization
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
